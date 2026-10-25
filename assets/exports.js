@@ -24,7 +24,33 @@ if(Math.abs(twist)<1e-10){side=add(`SURFACE_OF_LINEAR_EXTRUSION('',${c0},${vec([
 const v0=add(`VERTEX_POINT('',${pt(first0)})`),v1=add(`VERTEX_POINT('',${pt(first1)})`),seam=edge(v0,v1,sc(seamGeo,[pcurve(side,line([0,0],[0,1])),pcurve(side,line([uMax,0],[0,1]))],true)),e0=edge(v0,v0,sc(c0,[pcurve(side,line([0,0],[1,0])),pcurve(plane0,c20)])),e1=edge(v1,v1,sc(c1,[pcurve(side,line([0,vMax],[1,0])),pcurve(plane1,c21)]));faces.push(face([bound([orient(e0),orient(seam),orient(e1,false),orient(seam,false)])],side,!isHole));bottom.push(bound([orient(e0)],isHole));top.push(bound([orient(e1)],!isHole));}
 faces.push(face(bottom,plane0,false),face(top,plane1));solids.push(add(`MANIFOLD_SOLID_BREP('${p.id}',${add(`CLOSED_SHELL('',${ref(faces)})`)})`));}
 const repr=add(`ADVANCED_BREP_SHAPE_REPRESENTATION('',${ref([ax([0,0,0]),...solids])},${ctx})`);add(`SHAPE_DEFINITION_REPRESENTATION(${pds},${repr})`);add(`PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,(${prod}))`);return `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Gear Workbench approximate geometry'),'2;1');\nFILE_NAME('gears.step','${new Date().toISOString().slice(0,19)}',(''),(''),'Gear Workbench','Gear Workbench','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN'));\nENDSEC;\nDATA;\n${rows.map((s,i)=>'#'+(i+1)+' = '+s+';').join('\n')}\nENDSEC;\nEND-ISO-10303-21;\n`;}
-function rhinoMacro(poses){const rows=['!','_SelNone'];for(const p of poses){const geom=E.geometry(p),tag='GearPaste_'+p.id+'_'+Date.now().toString(36),f=n=>String(Number(n.toFixed(8)));rows.push(`_-Layer _New ${tag} _Current ${tag} _Enter`);for(const c of [geom.outer,geom.inner].filter(Boolean)){if(c.kind==='circle')rows.push(`_Circle _Normal w${f(p.x)},${f(p.y)},${f(p.z)} w${f(p.x)},${f(p.y)},${f(p.z+1)} ${f(c.r)}`);else{rows.push('_InterpCrv _Degree=3 _SubDFriendly=No _Knots=Chord _PersistentClose=No');for(const v of E.sample(c,1)){const w=world(p,v);rows.push('w'+w.map(f).join(','));}rows.push('_Close');}}
-rows.push('_SelNone',`_-SelLayer ${tag}`,'_PlanarSrf _Enter','_SelNone','_SelLast',`_ExtrudeSrf _Solid=Yes _DeleteInput=Yes _BothSides=No _SplitAtTangents=No _Direction w0,0,0 w0,0,1 ${f(p.width)}`);if(p.type==='helical')rows.push('_SelNone','_SelLast',`_Twist _Copy=No w${f(p.x)},${f(p.y)},${f(p.z+p.width)} w${f(p.x)},${f(p.y)},${f(p.z)} _Rigid=No _Infinite=Yes ${f(-E.deg(geom.d.twist))}`);rows.push('_SelNone','_SelLast','_Check','_What');}return rows.join('\n')+'\n';}
+function rhinoMacro(poses){
+  const rows=['!','_SelNone'];
+  const batch=Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+  for(const p of poses){
+    const geom=E.geometry(p),tag='GearPaste_'+p.id+'_'+batch,curves=tag+'_profiles',f=n=>String(Number(n.toFixed(8)));
+    // Profile geometry has its own layer so cleanup never selects unrelated document curves.
+    rows.push(`_-Layer _New ${curves} _Current ${curves} _Enter`);
+    for(const c of [geom.outer,geom.inner].filter(Boolean)){
+      if(c.kind==='circle') rows.push(`_Circle _Normal w${f(p.x)},${f(p.y)},${f(p.z)} w${f(p.x)},${f(p.y)},${f(p.z+1)} ${f(c.r)}`);
+      else {
+        rows.push('_InterpCrv _Degree=3 _SubDFriendly=No _Knots=Chord _PersistentClose=No');
+        for(const v of E.sample(c,1)) rows.push('w'+world(p,v).map(f).join(','));
+        rows.push('_Close');
+      }
+    }
+    // Make the holed planar region on the output layer, then remove just this part's profiles.
+    rows.push(`_-Layer _New ${tag} _Current ${tag} _Enter`,
+      '_SelNone',`_-SelLayer ${curves}`,'_PlanarSrf _Enter',
+      '_SelNone',`_-SelLayer ${curves}`,'_Delete',
+      `_-Layer _Delete ${curves} _Enter`,
+      '_SelNone','_SelLast',
+      `_ExtrudeSrf _Solid=No _DeleteInput=Yes _BothSides=No _SplitAtTangents=No _Direction w0,0,0 w0,0,1 ${f(p.width)}`,
+      '_SelNone','_SelLast','_Cap');
+    if(p.type==='helical') rows.push('_SelNone','_SelLast',`_Twist _Copy=No w${f(p.x)},${f(p.y)},${f(p.z+p.width)} w${f(p.x)},${f(p.y)},${f(p.z)} _Rigid=No _Infinite=Yes ${f(-E.deg(geom.d.twist))}`);
+    rows.push('_SelNone');
+  }
+  return rows.join('\n')+'\n';
+}
 return {makeSVG,makeDXF,makeSTL,makeSTEP,rhinoMacro};
 })();

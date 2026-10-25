@@ -80,3 +80,22 @@ for (const type of ['spur', 'helical', 'internal', 'rack']) {
     assert.ok(X.makeDXF([g]).includes('$INSUNITS\n70\n4'));
   });
 }
+
+test('Rhino macros cap every gear and remove only their own profile curves', () => {
+  const poses = ['spur', 'helical', 'internal', 'rack'].map((type, i) => gear('part' + i, { type, teeth: type === 'internal' ? 60 : type === 'rack' ? 12 : 20, x: i * 150 }));
+  const macro = X.rhinoMacro(poses);
+  assert.equal((macro.match(/_ExtrudeSrf _Solid=No _DeleteInput=Yes/g) || []).length, poses.length);
+  assert.equal((macro.match(/^_Cap$/gm) || []).length, poses.length);
+  assert.equal((macro.match(/^_Delete$/gm) || []).length, poses.length);
+  assert.equal((macro.match(/_-Layer _Delete GearPaste_.*_profiles _Enter/g) || []).length, poses.length);
+  assert.ok(!/_What\b|_Check\b|_SelAll\b|_SelCrv\b/.test(macro));
+  assert.ok(!macro.includes('_Solid=Yes'));
+  for (let i = 0; i < poses.length; i++) {
+    const profileTag = macro.match(new RegExp('GearPaste_part' + i + '_[a-z0-9_]+_profiles'))[0];
+    const plane = macro.indexOf('_PlanarSrf', macro.indexOf(profileTag));
+    const cleanup = macro.indexOf('_-SelLayer ' + profileTag + '\n_Delete', plane);
+    const extrusion = macro.indexOf('_ExtrudeSrf', cleanup);
+    const cap = macro.indexOf('\n_Cap\n', extrusion);
+    assert.ok(plane < cleanup && cleanup < extrusion && extrusion < cap);
+  }
+});
