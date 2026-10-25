@@ -53,8 +53,8 @@ test('impossible motion and mismatched helical hands are rejected', () => {
 });
 
 for (const type of ['spur', 'helical', 'internal', 'rack']) {
-  test(`${type}: STL closes, STEP contains a solid and DXF declares mm`, () => {
-    const g = gear('part', { type, teeth: type === 'internal' ? 60 : type === 'rack' ? 12 : 20 });
+  test(`${type}: compensated STL closes, STEP contains a solid and DXF declares mm`, () => {
+    const g = gear('part', { type, backlash: .1, teeth: type === 'internal' ? 60 : type === 'rack' ? 12 : 20 });
     const bytes = X.makeSTL([g]), view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const count = view.getUint32(80, true);
     assert.equal(bytes.length, 84 + 50 * count);
@@ -81,21 +81,68 @@ for (const type of ['spur', 'helical', 'internal', 'rack']) {
   });
 }
 
-test('Rhino macros cap every gear and remove only their own profile curves', () => {
-  const poses = ['spur', 'helical', 'internal', 'rack'].map((type, i) => gear('part' + i, { type, teeth: type === 'internal' ? 60 : type === 'rack' ? 12 : 20, x: i * 150 }));
-  const macro = X.rhinoMacro(poses);
-  assert.equal((macro.match(/_ExtrudeSrf _Solid=No _DeleteInput=Yes/g) || []).length, poses.length);
-  assert.equal((macro.match(/^_Cap$/gm) || []).length, poses.length);
-  assert.equal((macro.match(/^_Delete$/gm) || []).length, poses.length);
-  assert.equal((macro.match(/_-Layer _Delete GearPaste_.*_profiles _Enter/g) || []).length, poses.length);
-  assert.ok(!/_What\b|_Check\b|_SelAll\b|_SelCrv\b/.test(macro));
-  assert.ok(!macro.includes('_Solid=Yes'));
-  for (let i = 0; i < poses.length; i++) {
-    const profileTag = macro.match(new RegExp('GearPaste_part' + i + '_[a-z0-9_]+_profiles'))[0];
-    const plane = macro.indexOf('_PlanarSrf', macro.indexOf(profileTag));
-    const cleanup = macro.indexOf('_-SelLayer ' + profileTag + '\n_Delete', plane);
-    const extrusion = macro.indexOf('_ExtrudeSrf', cleanup);
-    const cap = macro.indexOf('\n_Cap\n', extrusion);
-    assert.ok(plane < cleanup && cleanup < extrusion && extrusion < cap);
+test('Rhino clipboard preserves exact profiles and poses in one self-contained command', () => {
+  const poses = ['spur','helical','internal','rack'].map((type,i)=>gear('p'+i,{type,name:'齒輪 '+i,teeth:type==='internal'?60:type==='rack'?12:20,x:i*150,y:-7,z:13,width:29,rotation:.37}));
+  const macro=X.rhinoMacro(poses);
+  assert.ok(macro.startsWith('! _-RunPythonScript (\n'));
+  const literal=macro.match(/data = json.loads\(u(.+)\)/)[1];
+  const payload=JSON.parse(JSON.parse(literal));
+  assert.equal(payload.length,poses.length);
+  for(let i=0;i<poses.length;i++){
+    const p=poses[i],part=payload[i],shape=E.geometry(p);
+    assert.equal(part.name,p.name);assert.deepEqual(part.center,[p.x,p.y,p.z]);assert.equal(part.width,29);close(part.twist,shape.d.twist);
+    for(const [j,c]of [shape.outer,shape.inner].filter(Boolean).entries()){
+      const loop=part.loops[j];
+      if(c.kind==='circle'){assert.equal(loop.radius,c.r);assert.deepEqual(loop.center,[p.x,p.y,p.z]);}
+      else{assert.equal(loop.poles.length,3*c.n+1);assert.deepEqual(loop.poles[0],loop.poles.at(-1));for(const k of [0,1,c.poles.length-1]){const xy=E.rot(c.poles[k],p.rotation);close(loop.poles[k][0],xy[0]+p.x);close(loop.poles[k][1],xy[1]+p.y);close(loop.poles[k][2],p.z);}}
+    }
   }
+  assert.ok(!/_-SelLayer|_SelLast|_What\b|_Check\b|RunScript\(|open\(/.test(macro));
+  assert.ok(macro.indexOf('CapPlanarHoles')<macro.indexOf('not solid.IsValid or not solid.IsSolid'));
+  assert.ok(macro.indexOf('not solid.IsValid or not solid.IsSolid')<macro.indexOf('doc.Objects.AddBrep'));
+  assert.ok(macro.includes('System.Guid.NewGuid()'));
+  assert.ok(macro.includes('doc.Objects.Delete(object_id, True)'));
+  assert.ok(macro.includes('Rhino.RhinoMath.UnitScale'));
+});
+
+test('Rhino copy treats user names as JSON data, not executable code',()=>{
+  const name='齒輪 \" )\n__import__("os").system("example")\n(';
+  const macro=X.rhinoMacro([gear('safe',{name})]);
+  const literal=macro.match(/data = json.loads\(u(.+)\)/)[1];
+  assert.equal(JSON.parse(JSON.parse(literal))[0].name,name);
+  assert.equal(macro.split('\n').filter(l=>l.startsWith('__import__')).length,0);
+});
+
+test('nearby compatible gears snap to pitch distance without mutating input', () => {
+ const a=gear('a'),b=gear('b',{x:43});const original=JSON.stringify([a,b]);
+ const s=E.snapMesh([a,b],[],'b','a',30,4);
+ assert.ok(s);close(s.gears[1].x,40);assert.equal(s.links.length,1);
+ close(E.solve(s.gears,s.links,'a',30).rates.b,-Math.PI);
+ assert.equal(JSON.stringify([a,b]),original);
+ assert.equal(E.snapMesh([a,gear('b',{x:50})],[],'b','a',30,4),null);
+ for(const change of [{m:3},{alpha:25},{z:20},{fixed:true}])assert.equal(E.snapMesh([a,gear('b',{x:42,...change})],[],'b','a',30,4),null);
+});
+
+test('snap handles internal, helical and rack meshes, preserving rack position along teeth', () => {
+ const cases=[
+  [gear('a',{type:'internal',teeth:60}),gear('b',{x:42})],
+  [gear('a',{type:'helical',beta:20}),gear('b',{type:'helical',beta:-20,x:44})],
+  [gear('a',{type:'rack',bore:0}),gear('b',{x:15,y:22})],
+  [gear('a'),gear('b',{type:'rack',bore:0,x:15,y:-22})]
+ ];
+ for(const gears of cases){const s=E.snapMesh(gears,[],'b','a',30,4);assert.ok(s);assert.deepEqual(E.relation(...s.gears).errors,[]);if(gears[1].type==='rack')close(s.gears[1].x,15);}
+ assert.equal(E.snapMesh([gear('a',{type:'rack',bore:0}),gear('b',{x:200,y:22})],[],'b','a',30,4),null);
+ assert.equal(E.snapMesh([gear('a',{type:'helical'}),gear('b',{type:'helical',x:44})],[],'b','a',30,4),null);
+});
+
+test('snap preserves other constraints, avoids duplicate links and refuses locked loops', () => {
+ const a=gear('a'),b=gear('b',{x:42}),link={id:'ab',a:'a',b:'b',kind:'mesh'};
+ const s=E.snapMesh([a,b],[link],'b','a',30,4);assert.ok(s);assert.equal(s.links.length,1);
+ assert.equal(E.snapMesh([a,b],[{...link,kind:'shaft'}],'b','a',30,4),null);
+ assert.equal(E.snapMesh([gear('a',{fixed:true}),b],[],'b','a',30,4),null);
+ const c=gear('c',{x:20,y:Math.sqrt(1200)}),loop=[link,{id:'ac',a:'a',b:'c',kind:'mesh'}];
+ assert.equal(E.snapMesh([a,gear('b',{x:40}),c],loop,'c','a',30,0.01)?.links.length,2);
+ // Adding the third edge of an external three-gear loop would reverse the same gear twice.
+ const closed=[...loop,{id:'bc',a:'b',b:'c',kind:'mesh'}];
+ assert.equal(E.snapMesh([a,gear('b',{x:40}),c],closed,'c','a',30,1),null);
 });

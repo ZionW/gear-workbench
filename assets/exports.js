@@ -24,33 +24,184 @@ if(Math.abs(twist)<1e-10){side=add(`SURFACE_OF_LINEAR_EXTRUSION('',${c0},${vec([
 const v0=add(`VERTEX_POINT('',${pt(first0)})`),v1=add(`VERTEX_POINT('',${pt(first1)})`),seam=edge(v0,v1,sc(seamGeo,[pcurve(side,line([0,0],[0,1])),pcurve(side,line([uMax,0],[0,1]))],true)),e0=edge(v0,v0,sc(c0,[pcurve(side,line([0,0],[1,0])),pcurve(plane0,c20)])),e1=edge(v1,v1,sc(c1,[pcurve(side,line([0,vMax],[1,0])),pcurve(plane1,c21)]));faces.push(face([bound([orient(e0),orient(seam),orient(e1,false),orient(seam,false)])],side,!isHole));bottom.push(bound([orient(e0)],isHole));top.push(bound([orient(e1)],!isHole));}
 faces.push(face(bottom,plane0,false),face(top,plane1));solids.push(add(`MANIFOLD_SOLID_BREP('${p.id}',${add(`CLOSED_SHELL('',${ref(faces)})`)})`));}
 const repr=add(`ADVANCED_BREP_SHAPE_REPRESENTATION('',${ref([ax([0,0,0]),...solids])},${ctx})`);add(`SHAPE_DEFINITION_REPRESENTATION(${pds},${repr})`);add(`PRODUCT_RELATED_PRODUCT_CATEGORY('part',$,(${prod}))`);return `ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Gear Workbench approximate geometry'),'2;1');\nFILE_NAME('gears.step','${new Date().toISOString().slice(0,19)}',(''),(''),'Gear Workbench','Gear Workbench','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN'));\nENDSEC;\nDATA;\n${rows.map((s,i)=>'#'+(i+1)+' = '+s+';').join('\n')}\nENDSEC;\nEND-ISO-10303-21;\n`;}
-function rhinoMacro(poses){
-  const rows=['!','_SelNone'];
-  const batch=Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
-  for(const p of poses){
-    const geom=E.geometry(p),tag='GearPaste_'+p.id+'_'+batch,curves=tag+'_profiles',f=n=>String(Number(n.toFixed(8)));
-    // Profile geometry has its own layer so cleanup never selects unrelated document curves.
-    rows.push(`_-Layer _New ${curves} _Current ${curves} _Enter`);
-    for(const c of [geom.outer,geom.inner].filter(Boolean)){
-      if(c.kind==='circle') rows.push(`_Circle _Normal w${f(p.x)},${f(p.y)},${f(p.z)} w${f(p.x)},${f(p.y)},${f(p.z+1)} ${f(c.r)}`);
-      else {
-        rows.push('_InterpCrv _Degree=3 _SubDFriendly=No _Knots=Chord _PersistentClose=No');
-        for(const v of E.sample(c,1)) rows.push('w'+world(p,v).map(f).join(','));
-        rows.push('_Close');
-      }
-    }
-    // Make the holed planar region on the output layer, then remove just this part's profiles.
-    rows.push(`_-Layer _New ${tag} _Current ${tag} _Enter`,
-      '_SelNone',`_-SelLayer ${curves}`,'_PlanarSrf _Enter',
-      '_SelNone',`_-SelLayer ${curves}`,'_Delete',
-      `_-Layer _Delete ${curves} _Enter`,
-      '_SelNone','_SelLast',
-      `_ExtrudeSrf _Solid=No _DeleteInput=Yes _BothSides=No _SplitAtTangents=No _Direction w0,0,0 w0,0,1 ${f(p.width)}`,
-      '_SelNone','_SelLast','_Cap');
-    if(p.type==='helical') rows.push('_SelNone','_SelLast',`_Twist _Copy=No w${f(p.x)},${f(p.y)},${f(p.z+p.width)} w${f(p.x)},${f(p.y)},${f(p.z)} _Rigid=No _Infinite=Yes ${f(-E.deg(geom.d.twist))}`);
-    rows.push('_SelNone');
-  }
-  return rows.join('\n')+'\n';
+function gearPayload(poses){
+  // One built-in Python command avoids nested interactive selection during Rhino Paste.
+  // No files, extra plugin, document curves, or localized command options are required.
+  const payload=poses.map((p,i)=>{
+    const g=E.geometry(p),loop=c=>c.kind==='circle'?{kind:'circle',center:[p.x,p.y,p.z],radius:c.r}:{kind:'nurbs',poles:c.poles.map(v=>world(p,v))};
+    return {name:p.name||'Gear '+(i+1),center:[p.x,p.y,p.z],width:p.width,twist:g.d.twist,loops:[g.outer,g.inner].filter(Boolean).map(loop)};
+  });
+  return payload;
 }
-return {makeSVG,makeDXF,makeSTL,makeSTEP,rhinoMacro};
+function rhinoMacro(poses){return rhinoSolidCommand(gearPayload(poses));}
+function mountPayload(m,includePins=true){
+  if(!m||!m.settings.enabled)throw Error('請先開啟生成列印底盤');
+  if(m.errors.length)throw Error(m.errors.join('；'));
+  if(includePins&&m.unmounted.length)throw Error('輪心未對孔位：請先對齊孔位，或取消包含支撐桿');
+  const payload=[{kind:'board',name:'凹槽洞洞板',x0:m.x0,x1:m.x1,y0:m.y0,y1:m.y1,top:m.top,bottom:m.bottom,hole:m.hole,recessDiameter:m.recessDiameter,recess:m.settings.recess,holes:m.holes.map(h=>[h.x,h.y])}];
+  if(includePins)for(const p of m.pins)payload.push({kind:'pin',name:p.name+' 支撐桿',center:[p.x,p.y],profile:globalThis.GearMount.pinProfile(p,m)});
+  return payload;
+}
+function rhinoMountMacro(m,includePins=true){return rhinoSolidCommand(mountPayload(m,includePins));}
+function rhinoAssemblyMacro(poses,m,includePins=true){return rhinoSolidCommand([...gearPayload(poses),...(m?mountPayload(m,includePins):[])]);}
+function rhinoSolidCommand(payload){
+  const literal=JSON.stringify(JSON.stringify(payload)).replace(/[^\x00-\x7f]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
+  return `! _-RunPythonScript (
+# -*- coding: utf-8 -*-
+# Gear Workbench solid-copy-v3: build, join, cap and validate before adding anything.
+import Rhino
+import System
+import json
+
+def gear_workbench_paste():
+    doc = Rhino.RhinoDoc.ActiveDoc
+    if doc is None:
+        raise RuntimeError('No active Rhino document')
+    data = json.loads(u${literal})
+    scale = Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Millimeters, doc.ModelUnitSystem)
+    tol = max(1e-7 * scale, min(doc.ModelAbsoluteTolerance, 0.001 * scale))
+    def point(v):
+        return Rhino.Geometry.Point3d(v[0] * scale, v[1] * scale, v[2] * scale)
+    def curve(spec):
+        if spec['kind'] == 'circle':
+            plane = Rhino.Geometry.Plane(point(spec['center']), Rhino.Geometry.Vector3d.ZAxis)
+            return Rhino.Geometry.Circle(plane, spec['radius'] * scale).ToNurbsCurve()
+        poles = spec['poles']
+        result = Rhino.Geometry.NurbsCurve(3, False, 4, len(poles))
+        for i, v in enumerate(poles):
+            result.Points.SetPoint(i, point(v))
+        for i in range(result.Knots.Count):
+            result.Knots[i] = float(i // 3)
+        if not result.IsValid or not result.IsClosed:
+            raise RuntimeError('Invalid closed gear profile')
+        return result
+    def circle_at(x, y, z, radius):
+        plane = Rhino.Geometry.Plane(point([x, y, z]), Rhino.Geometry.Vector3d.ZAxis)
+        return Rhino.Geometry.Circle(plane, radius * scale).ToNurbsCurve()
+    def make_board(p):
+        corners = [[p['x0'], p['y0']], [p['x1'], p['y0']], [p['x1'], p['y1']], [p['x0'], p['y1']]]
+        def outline(z):
+            return Rhino.Geometry.PolylineCurve([point([v[0], v[1], z]) for v in corners + [corners[0]]])
+        lower = [outline(p['bottom'])]
+        upper = [outline(p['top'])]
+        for h in p['holes']:
+            lower.append(circle_at(h[0], h[1], p['bottom'], p['hole'] / 2))
+            upper.append(circle_at(h[0], h[1], p['top'], p['recessDiameter'] / 2))
+        faces = []
+        for loops in [lower, upper]:
+            caps = Rhino.Geometry.Brep.CreatePlanarBreps(loops, tol)
+            if caps is None or len(caps) != 1:
+                raise RuntimeError('Could not create perforated board face')
+            faces.append(caps[0])
+        for i in range(4):
+            a, b = corners[i], corners[(i + 1) % 4]
+            side = Rhino.Geometry.Brep.CreateFromCornerPoints(point([a[0], a[1], p['bottom']]), point([b[0], b[1], p['bottom']]), point([b[0], b[1], p['top']]), point([a[0], a[1], p['top']]), tol)
+            if side is None:
+                raise RuntimeError('Could not create board edge')
+            faces.append(side)
+        seat_z = p['top'] - p['recess']
+        for h in p['holes']:
+            bottom_ring = circle_at(h[0], h[1], p['bottom'], p['hole'] / 2)
+            lower_ring = circle_at(h[0], h[1], seat_z, p['hole'] / 2)
+            upper_ring = circle_at(h[0], h[1], p['top'], p['recessDiameter'] / 2)
+            wall = Rhino.Geometry.Surface.CreateExtrusion(bottom_ring, Rhino.Geometry.Vector3d(0, 0, (seat_z - p['bottom']) * scale))
+            if wall is None:
+                raise RuntimeError('Could not create board hole')
+            faces.append(wall.ToBrep())
+            recess = Rhino.Geometry.Brep.CreateFromLoft([lower_ring, upper_ring], Rhino.Geometry.Point3d.Unset, Rhino.Geometry.Point3d.Unset, Rhino.Geometry.LoftType.Straight, False)
+            if recess is None or len(recess) != 1:
+                raise RuntimeError('Could not create recessed hole')
+            faces.append(recess[0])
+        result = Rhino.Geometry.Brep.JoinBreps(faces, tol)
+        if result is None or len(result) != 1:
+            raise RuntimeError('Could not join the recessed pegboard')
+        return result[0]
+    def make_pin(p):
+        x, y = p['center']
+        points = []
+        for radius, z in p['profile']:
+            v = point([x + radius, y, z])
+            if not points or v.DistanceTo(points[-1]) > 1e-9 * scale:
+                points.append(v)
+        profile = Rhino.Geometry.PolylineCurve(points)
+        axis = Rhino.Geometry.Line(point([x, y, p['profile'][0][1]]), point([x, y, p['profile'][-1][1]]))
+        surface = Rhino.Geometry.RevSurface.Create(profile, axis)
+        if surface is None:
+            raise RuntimeError('Could not revolve removable post')
+        return Rhino.Geometry.Brep.CreateFromRevSurface(surface, True, True)
+    ready = []
+    for p in data:
+        if p.get('kind') == 'board':
+            solid = make_board(p)
+        elif p.get('kind') == 'pin':
+            solid = make_pin(p)
+        else:
+            curves = [curve(c) for c in p['loops']]
+            bases = Rhino.Geometry.Brep.CreatePlanarBreps(curves, tol)
+            if bases is None or len(bases) != 1:
+                raise RuntimeError('Could not create one holed gear region')
+            walls = []
+            direction = Rhino.Geometry.Vector3d(0, 0, p['width'] * scale)
+            for c in curves:
+                surface = Rhino.Geometry.Surface.CreateExtrusion(c, direction)
+                if surface is None:
+                    raise RuntimeError('Could not extrude gear wall')
+                walls.append(surface.ToBrep())
+            joined = Rhino.Geometry.Brep.JoinBreps([bases[0]] + walls, tol)
+            if joined is None or len(joined) != 1:
+                raise RuntimeError('Could not join the gear base and walls')
+            solid = joined[0].CapPlanarHoles(tol)
+            if solid is None:
+                raise RuntimeError('Could not cap the gear')
+            if abs(p['twist']) > 1e-10:
+                axis = Rhino.Geometry.Line(point(p['center']), point([p['center'][0], p['center'][1], p['center'][2] + p['width']]))
+                morph = Rhino.Geometry.Morphs.TwistSpaceMorph()
+                morph.TwistAxis = axis
+                morph.TwistAngleRadians = p['twist']
+                morph.InfiniteTwist = True
+                morph.PreserveStructure = False
+                morph.Tolerance = tol
+                if not morph.Morph(solid):
+                    raise RuntimeError('Could not twist the helical gear')
+        if solid is None or not solid.IsValid or not solid.IsSolid:
+            raise RuntimeError('Gear is not a valid closed solid; nothing was added')
+        if solid.SolidOrientation == Rhino.Geometry.BrepSolidOrientation.Inward:
+            solid.Flip()
+        ready.append((p['name'], solid, p.get('kind', 'gear')))
+    # All shapes pass first. Each paste gets its own layer, including repeated pastes.
+    layer = Rhino.DocObjects.Layer()
+    layer.Name = 'GearPaste_' + System.Guid.NewGuid().ToString('N')
+    record = doc.BeginUndoRecord('Paste Gear Workbench solids')
+    created = []
+    layer_index = -1
+    try:
+        layer_index = doc.Layers.Add(layer)
+        if layer_index < 0:
+            raise RuntimeError('Could not create the gear layer')
+        for name, solid, kind in ready:
+            attrs = Rhino.DocObjects.ObjectAttributes()
+            attrs.LayerIndex = layer_index
+            attrs.Name = name
+            attrs.SetUserString('GearWorkbench', 'solid-copy-v3')
+            attrs.SetUserString('GearWorkbenchPart', kind)
+            object_id = doc.Objects.AddBrep(solid, attrs)
+            if object_id == System.Guid.Empty:
+                raise RuntimeError('Could not add the gear solid')
+            created.append(object_id)
+    except:
+        for object_id in created:
+            doc.Objects.Delete(object_id, True)
+        if layer_index >= 0:
+            doc.Layers.Delete(layer_index, True)
+        raise
+    finally:
+        doc.EndUndoRecord(record)
+    doc.Views.Redraw()
+    print('Gear Workbench: created {0} valid closed solids (mm).'.format(len(created)))
+
+gear_workbench_paste()
+)
+`;
+}
+return {makeSVG,makeDXF,makeSTL,makeSTEP,rhinoMacro,rhinoMountMacro,rhinoAssemblyMacro};
 })();
