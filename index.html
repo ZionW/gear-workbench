@@ -8,12 +8,12 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
 <title>齒輪工坊 · Gear Workbench</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="./assets/styles.css?v=12">
-<script defer src="./assets/engine.js?v=12"></script>
-<script defer src="./assets/exports.js?v=12"></script>
-<script defer src="./assets/mount.js?v=12"></script>
-<script defer src="./assets/downloads.js?v=12"></script>
-<script defer src="./assets/app.js?v=12"></script>
+<link rel="stylesheet" href="./assets/styles.css?v=14">
+<script defer src="./assets/engine.js?v=14"></script>
+<script defer src="./assets/exports.js?v=14"></script>
+<script defer src="./assets/mount.js?v=14"></script>
+<script defer src="./assets/downloads.js?v=14"></script>
+<script defer src="./assets/app.js?v=14"></script>
 </head>
 <body>
 <noscript>此工具需要啟用 JavaScript，所有幾何計算都在您的瀏覽器中執行。</noscript>
@@ -28,11 +28,12 @@
 <label class="field"><span>齒輪類型</span><select id="v-type"><option value="spur">直齒外齒輪</option><option value="helical">斜齒外齒輪</option><option value="internal">內齒輪</option><option value="rack">齒條</option></select></label>
 <div class="row"><label class="field"><span id="v-module-label">模數 m · mm</span><input id="v-m" type="number" min="0.3" max="10" step="any" list="v-module-options" aria-describedby="v-module-help"></label><label class="field"><span id="v-teeth-label">齒數 z</span><input id="v-teeth" type="number" min="8" max="100" step="1"></label></div>
 <datalist id="v-module-options"><option value="0.3"></option><option value="0.4"></option><option value="0.5"></option><option value="0.6"></option><option value="0.8"></option><option value="1"></option><option value="1.25"></option><option value="1.5"></option><option value="2"></option><option value="2.5"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="8"></option><option value="10"></option></datalist><div id="v-module-help" class="sub module-help">可輸入自訂小數；嚙合輪需使用相同模數。</div>
-<div class="row"><label class="field"><span>齒寬 b · mm</span><input id="v-width" type="number" min="1" max="60" step="1"></label><label class="field" id="v-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-bore" type="number" min="0" step="0.5"></label></div>
+<div class="row"><label class="field"><span>齒輪厚度 b · mm</span><input id="v-width" type="number" min="1" max="60" step="1"></label><label class="field" id="v-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-bore" type="number" min="0" step="0.5"></label></div>
 <label class="field" id="v-beta-wrap" hidden><span>螺旋角 β · °（＋右旋／−左旋）</span><input id="v-beta" type="number" min="-40" max="40" step="1"></label>
 <label class="field" id="v-wall-wrap" hidden><span>外環壁厚 · mm</span><input id="v-wall" type="number" min="0.3" max="100" step="0.5"></label>
 <label class="field" id="v-base-wrap" hidden><span>齒條背厚 · mm</span><input id="v-base" type="number" min="0.3" max="100" step="0.5"></label>
 </div></details>
+<details id="v-recess-panel" class="fold-panel inspector-panel" data-fold="recess"><summary><span>正面省料凹槽</span><span class="fold-description">保留輪緣與軸心</span></summary><div class="fold-content"><label class="check"><input id="v-recess-enabled" type="checkbox">啟用環形凹槽</label><label class="field"><span>凹槽深度 · mm</span><input id="v-recessDepth" type="number" min="0" max="58.8" step="0.2"></label><div class="row"><label class="field"><span>輪緣保留 · mm</span><input id="v-rimWall" type="number" min="1.2" step="0.2"></label><label class="field"><span>軸心保留 · mm</span><input id="v-hubWall" type="number" min="1.2" step="0.2"></label></div><p id="v-recess-info" class="sub"></p></div></details>
 <details class="fold-panel inspector-panel" data-fold="print"><summary><span>3D 列印間隙</span><span class="fold-description">A1 · PLA · 0.4 mm</span></summary><div class="fold-content"><p class="sub">0.20 mm 層高起始配置；以下為試印建議，可依實際配合調整。</p><label class="field"><span>一對齒輪總齒側間隙 · mm</span><input id="v-mount-backlash" type="number" min="0" max="0.6" step="0.05" value="0.2"></label><label class="field"><span>軸孔與支撐桿直徑差 · mm</span><input id="v-mount-shaftClearance" type="number" min="0.15" max="1" step="0.05" value="0.3"></label><p class="sub">兩輪各減薄一半齒厚；不改模數、節徑或中心距。直徑差 0.30 mm 為每側 0.15 mm。預覽、SVG／DXF、STL／STEP 與 Rhino 使用相同補償；齒側設 0 可還原理論齒厚。</p><p class="sub">請分件列印再組裝，先試印一對齒輪與一支桿。切片若另加孔徑／輪廓補償，需避免重複補償；首層象腳請在切片器調整。</p></div></details>
 <details class="fold-panel inspector-panel mount-panel" data-fold="mount"><summary><span>底盤與支撐桿</span><span class="fold-description" id="v-mount-summary">可拔插洞洞板</span></summary><div class="fold-content">
 <label class="check"><input id="v-mount-enabled" type="checkbox">生成列印底盤</label>
@@ -53,10 +54,11 @@
 <div class="viewport"><canvas id="v-canvas" tabindex="0" aria-label="齒輪配置與連動模擬，可在 2D 拖曳零件"></canvas><span class="viewlabel" id="v-view-note">2D 拖曳齒輪，靠近後放開即可吸附連動</span><section id="v-floating" class="floating-inspector" aria-labelledby="v-floating-title" hidden>
 <div class="floating-heading"><div><strong id="v-floating-title">齒輪參數</strong><span id="v-floating-kind" class="sub"></span></div><button id="v-floating-close" type="button" aria-label="關閉浮動參數" title="關閉 · Esc">×</button></div>
 <div class="row"><label class="field"><span id="v-floating-module-label">模數 m · mm</span><input id="v-floating-m" data-floating-key="m" type="number" step="any" aria-describedby="v-floating-error"></label><label class="field"><span id="v-floating-teeth-label">齒數 z</span><input id="v-floating-teeth" data-floating-key="teeth" type="number" step="1" aria-describedby="v-floating-error"></label></div>
-<div class="row"><label class="field"><span>齒寬 · mm</span><input id="v-floating-width" data-floating-key="width" type="number" step="1" aria-describedby="v-floating-error"></label><label class="field" id="v-floating-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-floating-bore" data-floating-key="bore" type="number" step="0.5" aria-describedby="v-floating-error"></label></div>
+<div class="row"><label class="field"><span>厚度 · mm</span><input id="v-floating-width" data-floating-key="width" type="number" step="1" aria-describedby="v-floating-error"></label><label class="field" id="v-floating-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-floating-bore" data-floating-key="bore" type="number" step="0.5" aria-describedby="v-floating-error"></label></div>
 <label class="field" id="v-floating-beta-wrap" hidden><span>螺旋角 β · °</span><input id="v-floating-beta" data-floating-key="beta" type="number" step="1" aria-describedby="v-floating-error"></label>
 <label class="field" id="v-floating-wall-wrap" hidden><span>外環壁厚 · mm</span><input id="v-floating-wall" data-floating-key="wall" type="number" step="0.5" aria-describedby="v-floating-error"></label>
 <label class="field" id="v-floating-base-wrap" hidden><span>齒條背厚 · mm</span><input id="v-floating-base" data-floating-key="base" type="number" step="0.5" aria-describedby="v-floating-error"></label>
+<label class="field" id="v-floating-recess-wrap"><span>正面凹槽深度 · mm（0 關閉）</span><input id="v-floating-recessDepth" data-floating-key="recessDepth" type="number" min="0" step="0.2" aria-describedby="v-floating-error"></label>
 <details id="v-floating-advanced" class="floating-advanced" data-expert><summary>壓力角與位置</summary><label class="field"><span>壓力角 · °</span><input id="v-floating-alpha" data-floating-key="alpha" type="number" step="0.5" aria-describedby="v-floating-error"></label><div class="row"><label class="field"><span>X · mm</span><input id="v-floating-x" data-floating-key="x" type="number" step="0.1" aria-describedby="v-floating-error"></label><label class="field"><span>Y · mm</span><input id="v-floating-y" data-floating-key="y" type="number" step="0.1" aria-describedby="v-floating-error"></label></div></details>
 <div id="v-floating-error" class="floating-error" role="status" aria-live="polite"></div>
 <div class="floating-foot"><span id="v-floating-size" class="sub"></span><button id="v-floating-more" type="button" class="quiet">完整設定</button></div>

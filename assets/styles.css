@@ -157,3 +157,4 @@
 
 #gear-lab .download-controls{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(90px,.7fr) auto;gap:12px;align-items:end;border-top:1px solid var(--color-rule);padding-top:16px;margin-top:12px}#gear-lab .download-controls .field{margin:0}#gear-lab .download-controls button{min-height:40px}#gear-lab #v-download-note{margin:10px 0 0;line-height:1.7}#gear-lab #v-download-note[data-error=true]{color:var(--color-warning)}@media(max-width:600px){#gear-lab .download-controls{grid-template-columns:minmax(0,1fr) 100px}#gear-lab .download-controls button{grid-column:1/-1}}
 #gear-lab[data-level=basic] .download-controls{flex:1 0 100%;margin-top:2px}#gear-lab #v-download-note{flex-basis:100%}
+#gear-lab #v-recess-panel .fold-content>.check{margin-bottom:12px}
