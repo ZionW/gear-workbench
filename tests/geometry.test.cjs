@@ -146,3 +146,7 @@ test('snap preserves other constraints, avoids duplicate links and refuses locke
  const closed=[...loop,{id:'bc',a:'b',b:'c',kind:'mesh'}];
  assert.equal(E.snapMesh([a,gear('b',{x:40}),c],closed,'c','a',30,1),null);
 });
+
+test('pegboard snap finds a hole position that also meshes instead of rounding a radial snap',()=>{const a=gear('a'),b=gear('b',{x:38,y:5}),before=JSON.stringify([a,b]),s=E.snapMesh([a,b],[],'b','a',30,6,{pitch:10,ids:['a','b']});assert(s);assert.equal(s.gridAligned,true);for(const g of s.gears){close(g.x/10,Math.round(g.x/10));close(g.y/10,Math.round(g.y/10));}assert.deepEqual(E.solve(s.gears,s.links,'a',30).errors,[]);assert.equal(JSON.stringify([a,b]),before);});
+test('pegboard snap can align an unfixed anchor but preserves fixed anchors and incompatible hole pitches',()=>{const a=gear('a',{x:1,y:1}),b=gear('b',{x:41,y:2});const s=E.snapMesh([a,b],[],'b','a',30,4,{pitch:10});assert(s);close(s.gears[0].x,0);close(s.gears[0].y,0);assert.equal(E.snapMesh([{...a,fixed:true},b],[],'b','a',30,4,{pitch:10}),null);assert.equal(E.snapMesh([gear('a'),gear('b',{x:40})],[],'b','a',30,6,{pitch:13}),null);});
+test('pegboard snap rejects a correction that would break existing connections',()=>{const a=gear('a',{x:1,y:1}),b=gear('b',{x:41,y:1}),c=gear('c',{x:-38,y:4}),links=[{a:'a',b:'b',kind:'mesh'}];assert.equal(E.snapMesh([a,b,c],links,'c','a',30,6,{pitch:10}),null);});

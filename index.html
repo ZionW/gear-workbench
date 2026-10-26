@@ -1,77 +1,897 @@
 <!doctype html>
 <html lang="zh-Hant">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="免費使用的齒輪生成與連動模擬工具：直齒、斜齒、內齒輪、齒條、多齒輪配置，以及 STL、STEP、DXF 匯出。">
-<meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
-<title>齒輪工坊 · Gear Workbench</title>
-<link rel="icon" href="data:,">
-<link rel="stylesheet" href="./assets/styles.css?v=14">
-<script defer src="./assets/engine.js?v=14"></script>
-<script defer src="./assets/exports.js?v=14"></script>
-<script defer src="./assets/mount.js?v=14"></script>
-<script defer src="./assets/downloads.js?v=14"></script>
-<script defer src="./assets/app.js?v=14"></script>
-</head>
-<body>
-<noscript>此工具需要啟用 JavaScript，所有幾何計算都在您的瀏覽器中執行。</noscript>
-<div id="gear-lab" data-ui-revision="3" data-level="basic">
-<header class="app-header"><div class="brand"><h2>齒輪工坊 <span class="sub">Gear Workbench</span></h2><div class="sub">參數化齒形、配置與連動模擬</div></div><div class="header-meta"><div class="segments level-switch" aria-label="功能版本"><button id="v-basic" aria-pressed="true">基本版</button><button id="v-expert" aria-pressed="false">進階版</button></div><span id="v-part-count">3 個零件</span><span class="unit-label">mm</span><button data-expert id="v-fold-all" class="quiet">收合設定</button></div></header>
-<details class="scene-panel fold-panel" data-fold="scene" open><summary><span>配置工具</span><span class="fold-description">拖近齒輪，自動對位</span></summary><div class="toolbar scene-tools"><label>範例<select id="v-preset"><option value="chain">直齒三級傳動</option><option value="helical">斜齒輪配對</option><option value="internal">內齒輪嚙合</option><option value="rack">齒條與小齒輪</option></select></label><button id="v-load">載入範例</button><button id="v-add">新增零件</button><button data-expert id="v-duplicate">複製零件</button><button id="v-undo" disabled>復原配置</button></div></details>
-<div class="shell"><aside aria-label="零件設定">
-<div class="inspector-heading"><h3>零件設定</h3><span id="v-selected-kind" class="sub">直齒外齒輪</span></div>
-<label class="field"><span>目前零件</span><select id="v-selected"></select></label>
-<details class="fold-panel inspector-panel" data-fold="geometry" open><summary><span>齒形與尺寸</span><span class="fold-description" id="v-size-summary"></span></summary><div class="fold-content">
-<label data-expert class="field"><span>名稱</span><input id="v-name" maxlength="24" type="text"></label>
-<label class="field"><span>齒輪類型</span><select id="v-type"><option value="spur">直齒外齒輪</option><option value="helical">斜齒外齒輪</option><option value="internal">內齒輪</option><option value="rack">齒條</option></select></label>
-<div class="row"><label class="field"><span id="v-module-label">模數 m · mm</span><input id="v-m" type="number" min="0.3" max="10" step="any" list="v-module-options" aria-describedby="v-module-help"></label><label class="field"><span id="v-teeth-label">齒數 z</span><input id="v-teeth" type="number" min="8" max="100" step="1"></label></div>
-<datalist id="v-module-options"><option value="0.3"></option><option value="0.4"></option><option value="0.5"></option><option value="0.6"></option><option value="0.8"></option><option value="1"></option><option value="1.25"></option><option value="1.5"></option><option value="2"></option><option value="2.5"></option><option value="3"></option><option value="4"></option><option value="5"></option><option value="6"></option><option value="8"></option><option value="10"></option></datalist><div id="v-module-help" class="sub module-help">可輸入自訂小數；嚙合輪需使用相同模數。</div>
-<div class="row"><label class="field"><span>齒輪厚度 b · mm</span><input id="v-width" type="number" min="1" max="60" step="1"></label><label class="field" id="v-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-bore" type="number" min="0" step="0.5"></label></div>
-<label class="field" id="v-beta-wrap" hidden><span>螺旋角 β · °（＋右旋／−左旋）</span><input id="v-beta" type="number" min="-40" max="40" step="1"></label>
-<label class="field" id="v-wall-wrap" hidden><span>外環壁厚 · mm</span><input id="v-wall" type="number" min="0.3" max="100" step="0.5"></label>
-<label class="field" id="v-base-wrap" hidden><span>齒條背厚 · mm</span><input id="v-base" type="number" min="0.3" max="100" step="0.5"></label>
-</div></details>
-<details id="v-recess-panel" class="fold-panel inspector-panel" data-fold="recess"><summary><span>正面省料凹槽</span><span class="fold-description">保留輪緣與軸心</span></summary><div class="fold-content"><label class="check"><input id="v-recess-enabled" type="checkbox">啟用環形凹槽</label><label class="field"><span>凹槽深度 · mm</span><input id="v-recessDepth" type="number" min="0" max="58.8" step="0.2"></label><div class="row"><label class="field"><span>輪緣保留 · mm</span><input id="v-rimWall" type="number" min="1.2" step="0.2"></label><label class="field"><span>軸心保留 · mm</span><input id="v-hubWall" type="number" min="1.2" step="0.2"></label></div><p id="v-recess-info" class="sub"></p></div></details>
-<details class="fold-panel inspector-panel" data-fold="print"><summary><span>3D 列印間隙</span><span class="fold-description">A1 · PLA · 0.4 mm</span></summary><div class="fold-content"><p class="sub">0.20 mm 層高起始配置；以下為試印建議，可依實際配合調整。</p><label class="field"><span>一對齒輪總齒側間隙 · mm</span><input id="v-mount-backlash" type="number" min="0" max="0.6" step="0.05" value="0.2"></label><label class="field"><span>軸孔與支撐桿直徑差 · mm</span><input id="v-mount-shaftClearance" type="number" min="0.15" max="1" step="0.05" value="0.3"></label><p class="sub">兩輪各減薄一半齒厚；不改模數、節徑或中心距。直徑差 0.30 mm 為每側 0.15 mm。預覽、SVG／DXF、STL／STEP 與 Rhino 使用相同補償；齒側設 0 可還原理論齒厚。</p><p class="sub">請分件列印再組裝，先試印一對齒輪與一支桿。切片若另加孔徑／輪廓補償，需避免重複補償；首層象腳請在切片器調整。</p></div></details>
-<details class="fold-panel inspector-panel mount-panel" data-fold="mount"><summary><span>底盤與支撐桿</span><span class="fold-description" id="v-mount-summary">可拔插洞洞板</span></summary><div class="fold-content">
-<label class="check"><input id="v-mount-enabled" type="checkbox">生成列印底盤</label>
-<p class="sub">規則孔板＋錐形沉槽，桿件可拔出換孔位；齒輪套在桿上轉動。</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="免費使用的齒輪生成與連動模擬工具：直齒、斜齒、內齒輪、齒條、多齒輪配置，以及 STL、STEP、DXF 匯出。"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'"
+    />
+    <title>齒輪工坊 · Gear Workbench</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./assets/styles.css?v=28" />
+    <link rel="stylesheet" href="./tokens.css?v=28" />
+    <link rel="stylesheet" href="./assets/reference-theme.css?v=28" />
+    <script defer src="./assets/engine.js?v=31"></script>
+    <script defer src="./assets/coupler.js?v=28"></script>
+    <script defer src="./assets/lettering.js?v=28"></script>
+    <script defer src="./assets/exports.js?v=28"></script>
+    <script defer src="./assets/vendor/earcut.js?v=28"></script>
+    <script defer src="./assets/mount.js?v=28"></script>
+    <script defer src="./assets/downloads.js?v=28"></script>
+    <script defer src="./assets/annotations.js?v=29"></script>
+    <script defer src="./assets/translations.js?v=31"></script>
+    <script defer src="./assets/i18n.js?v=28"></script>
+    <script defer src="./assets/motion.js?v=30"></script>
+    <script defer src="./assets/app.js?v=31"></script>
+    <script defer src="./assets/component-preview.js?v=28"></script>
+  </head>
+  <body>
+    <noscript
+      >此工具需要啟用 JavaScript，所有幾何計算都在您的瀏覽器中執行。</noscript
+    >
+    <div id="gear-lab" data-ui-revision="3" data-level="basic">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-kicker">PARAMETRIC / MECHANICAL PLAYGROUND</span>
+          <h2>
+            <span class="brand-name">齒輪工坊</span
+            ><span class="sub">GEAR WORKBENCH</span>
+          </h2>
+          <div class="sub">參數化齒形、配置與連動模擬</div>
+        </div>
+        <div class="header-meta">
+          <label class="language-picker"
+            ><span>語言</span
+            ><select id="v-language" aria-label="介面語言">
+              <option value="zh-Hant">繁體中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+              <option value="ko">한국어</option>
+            </select></label
+          >
+          <div class="segments level-switch" aria-label="功能版本">
+            <button id="v-basic" aria-pressed="true">基本版</button
+            ><button id="v-expert" aria-pressed="false">進階版</button>
+          </div>
+          <span id="v-part-count">3 個零件</span
+          ><span class="unit-label">mm</span
+          ><button data-expert id="v-fold-all" class="quiet">收合設定</button>
+        </div>
+      </header>
+      <details class="scene-panel fold-panel" data-fold="scene" open>
+        <summary>
+          <span>配置工具</span
+          ><span class="fold-description">拖近齒輪，自動對位</span>
+        </summary>
+        <div class="toolbar scene-tools">
+          <label
+            >範例<select id="v-preset">
+              <option value="chain">直齒三級傳動</option>
+              <option value="helical">斜齒輪配對</option>
+              <option value="internal">內齒輪嚙合</option>
+              <option value="rack">齒條與小齒輪</option>
+            </select></label
+          ><button id="v-load">載入範例</button
+          ><button id="v-add">新增零件</button
+          ><button data-expert id="v-duplicate">複製零件</button
+          ><button id="v-delete" class="quiet">刪除此零件</button
+          ><button id="v-undo" disabled>復原配置</button>
+        </div>
+      </details>
+      <div class="shell">
+        <aside aria-label="零件設定">
+          <div class="inspector-heading">
+            <h3>零件設定</h3>
+            <span id="v-selected-kind" class="sub">直齒外齒輪</span>
+          </div>
+          <label class="field"
+            ><span>目前零件</span
+            ><select id="v-selected"></select
+          ></label>
+          <details class="fold-panel inspector-panel" data-fold="geometry" open>
+            <summary>
+              <span>齒形與尺寸</span
+              ><span class="fold-description" id="v-size-summary"></span>
+            </summary>
+            <div class="fold-content">
+              <label data-expert class="field"
+                ><span>名稱</span><input id="v-name" maxlength="24" type="text"
+              /></label>
+              <label class="field"
+                ><span>齒輪類型</span
+                ><select id="v-type">
+                  <option value="spur">直齒外齒輪</option>
+                  <option value="helical">斜齒外齒輪</option>
+                  <option value="internal">內齒輪</option>
+                  <option value="rack">齒條</option>
+                </select></label
+              >
+              <div class="row">
+                <label class="field"
+                  ><span id="v-module-label">模數 m · mm</span
+                  ><input
+                    id="v-m"
+                    type="number"
+                    min="0.3"
+                    max="10"
+                    step="any"
+                    list="v-module-options"
+                    aria-describedby="v-module-help" /></label
+                ><label class="field"
+                  ><span id="v-teeth-label">齒數 z</span
+                  ><input id="v-teeth" type="number" min="8" max="100" step="1"
+                /></label>
+              </div>
+              <datalist id="v-module-options">
+                <option value="0.3"></option>
+                <option value="0.4"></option>
+                <option value="0.5"></option>
+                <option value="0.6"></option>
+                <option value="0.8"></option>
+                <option value="1"></option>
+                <option value="1.25"></option>
+                <option value="1.5"></option>
+                <option value="2"></option>
+                <option value="2.5"></option>
+                <option value="3"></option>
+                <option value="4"></option>
+                <option value="5"></option>
+                <option value="6"></option>
+                <option value="8"></option>
+                <option value="10"></option>
+              </datalist>
+              <div id="v-module-help" class="sub module-help">
+                可輸入自訂小數；嚙合輪需使用相同模數。
+              </div>
+              <div class="row">
+                <label class="field"
+                  ><span>齒輪厚度 b · mm</span
+                  ><input
+                    id="v-width"
+                    type="number"
+                    min="1"
+                    max="60"
+                    step="1" /></label
+                ><label class="field" id="v-bore-wrap"
+                  ><span id="v-bore-label">軸孔直徑 · mm</span
+                  ><input id="v-bore" type="number" min="0" step="0.5"
+                /></label>
+              </div>
+              <label class="field" id="v-beta-wrap" hidden
+                ><span>螺旋角 β · °（＋右旋／−左旋）</span
+                ><input id="v-beta" type="number" min="-40" max="40" step="1"
+              /></label>
+              <label class="field" id="v-wall-wrap" hidden
+                ><span>外環壁厚 · mm</span
+                ><input
+                  id="v-wall"
+                  type="number"
+                  min="0.3"
+                  max="100"
+                  step="0.5"
+              /></label>
+              <label class="field" id="v-base-wrap" hidden
+                ><span>齒條背厚 · mm</span
+                ><input
+                  id="v-base"
+                  type="number"
+                  min="0.3"
+                  max="100"
+                  step="0.5"
+              /></label>
+            </div>
+          </details>
 
-<div class="row"><label class="field"><span>孔距 · mm</span><input id="v-mount-pitch" type="number" min="6" max="50" step="any" value="10"></label><label class="field"><span>底盤插拔直徑差 · mm</span><input id="v-mount-clearance" type="number" min="0.15" max="1" step="0.05" value="0.3"></label></div>
-<details class="mount-dimensions"><summary>底盤與桿件尺寸</summary><div class="row"><label class="field"><span>板厚 · mm</span><input id="v-mount-thickness" type="number" min="3" max="20" step="0.5" value="6"></label><label class="field"><span>板邊餘量 · mm</span><input id="v-mount-margin" type="number" min="5" max="40" step="1" value="10"></label></div><div class="row"><label class="field"><span>插腳直徑 · mm</span><input id="v-mount-plug" type="number" min="3" max="12" step="0.5" value="6"></label><label class="field"><span>沉槽深度 · mm</span><input id="v-mount-recess" type="number" min="0.5" max="3" step="0.5" value="1.5"></label></div><label class="field"><span>齒輪離板高度 · mm</span><input id="v-mount-standOff" type="number" min="2" max="20" step="0.5" value="4"></label></details>
-<div id="v-mount-info" class="sub" role="status" aria-live="polite"></div>
-<div class="actions mount-actions"><button id="v-mount-grid">對齊孔位</button></div>
+          <details
+            id="v-coupler-panel"
+            class="fold-panel inspector-panel"
+            data-fold="coupler"
+          >
+            <summary>
+              <span>馬達聯軸器</span
+              ><span class="fold-description">圓／D 型孔轉六角</span>
+            </summary>
+            <div class="fold-content">
+              <label class="field"
+                ><span>附圖馬達軸預設</span
+                ><select id="v-motor-preset">
+                  <option value="custom">自訂尺寸</option>
+                  <option value="drawing1">圖一・Ø5.2／對邊3.6／軸伸9.3</option>
+                  <option value="drawing2">圖二・Ø5／對邊4／軸伸9.5</option>
+                </select></label
+              ><button id="v-motor-preset-apply" type="button" disabled>
+                套用馬達軸
+              </button>
+              <p id="v-motor-preset-note" class="sub"></p>
+              <label class="check"
+                ><input
+                  id="v-coupler-enabled"
+                  type="checkbox"
+                />此齒輪使用馬達聯軸器</label
+              ><label class="check"
+                ><input
+                  id="v-coupler-mount"
+                  type="checkbox"
+                />一體軸連接底板（自動放大六角孔）</label
+              >
+              <p id="v-coupler-mount-note" class="sub"></p>
+              <label class="field"
+                ><span>馬達軸形狀</span
+                ><select id="v-motorShape">
+                  <option value="round">圓軸</option>
+                  <option value="d">D 型軸</option>
+                  <option value="double-d">雙 D／雙扁軸</option>
+                </select></label
+              >
+              <div class="row">
+                <label class="field"
+                  ><span>馬達軸徑 · mm</span
+                  ><input
+                    id="v-motorShaft"
+                    type="number"
+                    min="1"
+                    max="12"
+                    step="0.1"
+                    value="3" /></label
+                ><label class="field"
+                  ><span>軸孔尺寸補償 · mm</span
+                  ><input
+                    id="v-motorAllowance"
+                    type="number"
+                    min="-0.2"
+                    max="0.6"
+                    step="0.05"
+                    value="0"
+                /></label>
+              </div>
+              <div class="row">
+                <label class="field" id="v-motor-flat-wrap" hidden
+                  ><span>每側削平量 · mm</span
+                  ><input
+                    id="v-motorFlat"
+                    type="number"
+                    min="0.1"
+                    step="0.05"
+                    value="0.5" /></label
+                ><label class="field"
+                  ><span>軸插入深度 · mm（0 貫通）</span
+                  ><input
+                    id="v-motorDepth"
+                    type="number"
+                    min="0"
+                    step="0.5"
+                    value="0"
+                /></label>
+              </div>
+              <div class="row">
+                <label class="field"
+                  ><span>聯軸器馬達端長度 · mm</span
+                  ><input
+                    id="v-motorLength"
+                    type="number"
+                    min="5"
+                    max="40"
+                    step="0.5"
+                    value="12" /></label
+                ><label class="field"
+                  ><span>六角插入長 · mm</span
+                  ><input
+                    id="v-hexLength"
+                    type="number"
+                    min="2"
+                    max="30"
+                    step="0.5"
+                    value="6"
+                /></label>
+              </div>
+              <div class="row">
+                <label class="field"
+                  ><span>六角對邊間隙 · mm</span
+                  ><input
+                    id="v-hexClearance"
+                    type="number"
+                    min="0.1"
+                    max="0.8"
+                    step="0.05"
+                    value="0.3" /></label
+                ><label class="field"
+                  ><span>馬達座最小壁厚 · mm</span
+                  ><input
+                    id="v-couplerWall"
+                    type="number"
+                    min="1.2"
+                    max="8"
+                    step="0.2"
+                    value="2"
+                /></label>
+              </div>
+              <p id="v-coupler-info" class="sub"></p>
+              <p class="sub">
+                D 型削平量是從圓周削掉的深度；例如 Ø3、單側削平 0.5
+                mm，平面至對側為 2.5 mm；雙 D 的對邊尺寸 = 軸徑 − 2 ×
+                每側削平量。插入深度 0 為貫通孔，其他值為盲孔並保留至少 1.2 mm
+                底厚。未含夾緊或止付螺絲，需試印調整配合。預設孔徑補償是直徑方向總差（每側一半），不是印表機精度保證；請先下載「馬達軸試配包」，沿用正式零件的切片設定測試。馬達固定座另製。3D
+                預覽、Rhino 整組複製與列印包包含聯軸器。
+              </p>
+            </div>
+          </details>
+          <details
+            id="v-recess-panel"
+            class="fold-panel inspector-panel"
+            data-fold="recess"
+          >
+            <summary>
+              <span>正面省料凹槽</span
+              ><span class="fold-description">保留輪緣與軸心</span>
+            </summary>
+            <div class="fold-content">
+              <label class="check"
+                ><input
+                  id="v-recess-enabled"
+                  type="checkbox"
+                />啟用環形凹槽</label
+              ><label class="field"
+                ><span>凹槽深度 · mm</span
+                ><input
+                  id="v-recessDepth"
+                  type="number"
+                  min="0"
+                  max="58.8"
+                  step="0.2"
+              /></label>
+              <div class="row">
+                <label class="field"
+                  ><span>輪緣保留 · mm</span
+                  ><input
+                    id="v-rimWall"
+                    type="number"
+                    min="1.2"
+                    step="0.2" /></label
+                ><label class="field"
+                  ><span>軸心保留 · mm</span
+                  ><input id="v-hubWall" type="number" min="1.2" step="0.2"
+                /></label>
+              </div>
+              <p id="v-recess-info" class="sub"></p>
+            </div>
+          </details>
+          <details class="fold-panel inspector-panel" data-fold="lettering">
+            <summary>
+              <span>2D 環形單線字</span
+              ><span class="fold-description">規格標示</span>
+            </summary>
+            <div class="fold-content">
+              <label class="check"
+                ><input
+                  id="v-label-enabled"
+                  type="checkbox"
+                  checked
+                />顯示並匯出單線資訊</label
+              ><label class="field"
+                ><span>字高上限 · mm</span
+                ><input
+                  id="v-label-height"
+                  type="number"
+                  min="0.5"
+                  max="6"
+                  step="0.1"
+                  value="3" /></label
+              ><label class="field"
+                ><span>雕刻安全留白 · mm</span
+                ><input
+                  id="v-label-margin"
+                  type="number"
+                  min="0.5"
+                  max="10"
+                  step="0.1"
+                  value="2"
+              /></label>
+              <div
+                id="v-label-safety"
+                class="sub"
+                role="status"
+                aria-live="polite"
+              ></div>
+              <p class="sub">
+                圓形齒輪在齒根內側安全範圍環形排列；齒條沿背板排列。G：齒輪編號，M：模數，Z：齒數，T：厚度，D：軸孔，A：壓力角，B：螺旋角。單位
+                mm／度。預設距齒根輪廓、外緣與軸孔至少 2
+                mm；會檢查字元外角。字高依安全區域自動縮小，空間不足不輸出刻字。中文名稱保留畫面顯示，單線刻字使用編號或英文名稱。
+              </p>
+              <p class="sub">
+                SVG 為開放單線路徑；DXF 分為 CUT 輪廓與 ENGRAVE
+                刻字圖層。此功能僅標示 2D，不修改 3D 實體。
+              </p>
+            </div>
+          </details>
+          <details class="fold-panel inspector-panel" data-fold="print">
+            <summary>
+              <span>3D 列印間隙</span
+              ><span class="fold-description">A1 · PLA · 0.4 mm</span>
+            </summary>
+            <div class="fold-content">
+              <p class="sub">
+                0.20 mm 層高起始配置；以下為試印建議，可依實際配合調整。
+              </p>
+              <label class="field"
+                ><span>一對齒輪總齒側間隙 · mm</span
+                ><input
+                  id="v-mount-backlash"
+                  type="number"
+                  min="0"
+                  max="0.6"
+                  step="0.05"
+                  value="0.2" /></label
+              ><label class="field"
+                ><span>軸孔與支撐桿直徑差 · mm</span
+                ><input
+                  id="v-mount-shaftClearance"
+                  type="number"
+                  min="0.15"
+                  max="1"
+                  step="0.05"
+                  value="0.3"
+              /></label>
+              <p class="sub">
+                兩輪各減薄一半齒厚；不改模數、節徑或中心距。直徑差 0.30 mm
+                為每側 0.15 mm。預覽、SVG／DXF、STL／STEP 與 Rhino
+                使用相同補償；齒側設 0 可還原理論齒厚。
+              </p>
+              <p class="sub">
+                請分件列印再組裝，先試印一對齒輪與一支桿。切片若另加孔徑／輪廓補償，需避免重複補償；首層象腳請在切片器調整。
+              </p>
+            </div>
+          </details>
+          <details
+            class="fold-panel inspector-panel mount-panel"
+            data-fold="mount"
+          >
+            <summary>
+              <span>底盤與支撐桿</span
+              ><span class="fold-description" id="v-mount-summary"
+                >可拔插洞洞板</span
+              >
+            </summary>
+            <div class="fold-content">
+              <label class="check"
+                ><input
+                  id="v-mount-enabled"
+                  type="checkbox"
+                />生成列印底盤</label
+              ><label class="check"
+                ><input
+                  id="v-mount-adaptive"
+                  type="checkbox"
+                />自適應底板・融合固定支撐桿</label
+              >
+              <p class="sub">
+                依配置收邊，僅保留聯軸器轉動孔。支撐桿與底板一體列印且不轉動；孔軸直徑差至少
+                0.4 mm，齒輪下方留 0.2 mm 空隙。
+              </p>
+              <p class="sub">
+                規則孔板＋錐形沉槽，桿件可拔出換孔位；齒輪套在桿上轉動。
+              </p>
 
-<p class="sub">間隙為直徑差，需依印表機微調。先試印一支桿確認配合。請至「複製與下載」統一下載底盤、桿件，或整套列印包。</p>
-</div></details>
-<details class="fold-panel inspector-panel" data-expert data-fold="position"><summary><span>位置與初相</span><span class="fold-description" id="v-position-summary"></span></summary><div class="fold-content"><div class="row"><label class="field"><span>X · mm</span><input id="v-x" type="number" step="0.1"></label><label class="field"><span>Y · mm</span><input id="v-y" type="number" step="0.1"></label></div><div class="row"><label class="field"><span>Z · mm</span><input id="v-z" type="number" step="0.1"></label><label class="field" id="v-yaw-wrap"><span>齒條方向 · °</span><input id="v-yaw" type="number" step="1"></label></div><label class="field"><span id="v-phase-label">初始齒相 · °</span><input id="v-phase" type="number" step="0.5"></label><label class="check"><input id="v-fixed" type="checkbox">固定此零件</label></div></details>
-<details class="fold-panel inspector-panel" data-expert data-fold="advanced"><summary><span>進階齒形</span><span class="fold-description">壓力角</span></summary><div class="fold-content"><label class="field"><span id="v-alpha-label">壓力角 · °</span><input id="v-alpha" type="number" min="14.5" max="25" step="0.5"></label></div></details>
-<div class="inspector-foot"><div id="v-geometry-note" class="sub"></div><button id="v-delete" class="quiet">刪除此零件</button></div>
-</aside><main>
-<section class="stage" aria-label="配置與運轉"><div class="toolbar view-toolbar"><div class="segments" aria-label="預覽視圖"><button id="v-view2" aria-pressed="true">2D 配置</button><button id="v-view3" aria-pressed="false">3D 配置</button></div><div class="view-options"><label class="check"><input id="v-snap" type="checkbox" checked>自動吸附連動</label><label class="check"><input id="v-pitch" type="checkbox" checked>節圓／節線</label><button id="v-floating-toggle" aria-pressed="false" aria-controls="v-floating">參數</button><button id="v-fit" class="quiet">適合視窗</button></div></div>
-<div class="viewport"><canvas id="v-canvas" tabindex="0" aria-label="齒輪配置與連動模擬，可在 2D 拖曳零件"></canvas><span class="viewlabel" id="v-view-note">2D 拖曳齒輪，靠近後放開即可吸附連動</span><section id="v-floating" class="floating-inspector" aria-labelledby="v-floating-title" hidden>
-<div class="floating-heading"><div><strong id="v-floating-title">齒輪參數</strong><span id="v-floating-kind" class="sub"></span></div><button id="v-floating-close" type="button" aria-label="關閉浮動參數" title="關閉 · Esc">×</button></div>
-<div class="row"><label class="field"><span id="v-floating-module-label">模數 m · mm</span><input id="v-floating-m" data-floating-key="m" type="number" step="any" aria-describedby="v-floating-error"></label><label class="field"><span id="v-floating-teeth-label">齒數 z</span><input id="v-floating-teeth" data-floating-key="teeth" type="number" step="1" aria-describedby="v-floating-error"></label></div>
-<div class="row"><label class="field"><span>厚度 · mm</span><input id="v-floating-width" data-floating-key="width" type="number" step="1" aria-describedby="v-floating-error"></label><label class="field" id="v-floating-bore-wrap"><span>軸孔直徑 · mm</span><input id="v-floating-bore" data-floating-key="bore" type="number" step="0.5" aria-describedby="v-floating-error"></label></div>
-<label class="field" id="v-floating-beta-wrap" hidden><span>螺旋角 β · °</span><input id="v-floating-beta" data-floating-key="beta" type="number" step="1" aria-describedby="v-floating-error"></label>
-<label class="field" id="v-floating-wall-wrap" hidden><span>外環壁厚 · mm</span><input id="v-floating-wall" data-floating-key="wall" type="number" step="0.5" aria-describedby="v-floating-error"></label>
-<label class="field" id="v-floating-base-wrap" hidden><span>齒條背厚 · mm</span><input id="v-floating-base" data-floating-key="base" type="number" step="0.5" aria-describedby="v-floating-error"></label>
-<label class="field" id="v-floating-recess-wrap"><span>正面凹槽深度 · mm（0 關閉）</span><input id="v-floating-recessDepth" data-floating-key="recessDepth" type="number" min="0" step="0.2" aria-describedby="v-floating-error"></label>
-<details id="v-floating-advanced" class="floating-advanced" data-expert><summary>壓力角與位置</summary><label class="field"><span>壓力角 · °</span><input id="v-floating-alpha" data-floating-key="alpha" type="number" step="0.5" aria-describedby="v-floating-error"></label><div class="row"><label class="field"><span>X · mm</span><input id="v-floating-x" data-floating-key="x" type="number" step="0.1" aria-describedby="v-floating-error"></label><label class="field"><span>Y · mm</span><input id="v-floating-y" data-floating-key="y" type="number" step="0.1" aria-describedby="v-floating-error"></label></div></details>
-<div id="v-floating-error" class="floating-error" role="status" aria-live="polite"></div>
-<div class="floating-foot"><span id="v-floating-size" class="sub"></span><button id="v-floating-more" type="button" class="quiet">完整設定</button></div>
-</section>
-</div>
-<div class="player"><div class="play-actions"><button class="primary" id="v-play">開始運轉</button><button id="v-reset" class="quiet">回到起點</button><button data-expert id="v-step" class="quiet">前進 0.1 秒</button><output id="v-time">0.00 s</output></div><details class="fold-panel simulation-panel" data-expert data-fold="simulation"><summary><span>模擬設定</span><span class="fold-description" id="v-drive-summary">主動輪・速度・對齒</span></summary><div class="drive-fields"><label>主動零件<select id="v-driver"></select></label><label><span id="v-speed-label">轉速 · rpm</span><input id="v-speed" type="number" min="-300" max="300" step="1" value="30"></label><label class="check"><input id="v-autophase" type="checkbox" checked>自動對齒</label></div></details></div>
-<div class="message" id="v-status" role="status" aria-live="polite"></div></section>
-<div class="workspace-panels">
-<details class="connection fold-panel workspace-panel" data-expert data-fold="links"><summary><span>連動關係</span><span class="fold-description" id="v-link-count">2 組</span></summary><div class="fold-content"><div class="link-fields"><label>零件 A<select id="v-link-a"></select></label><label>零件 B<select id="v-link-b"></select></label><label>連動方式<select id="v-link-kind"><option value="mesh">齒面嚙合</option><option value="shaft">同軸剛接</option></select></label><label>相對方位 · °<input id="v-bearing" type="number" value="0" step="15"></label></div><div class="actions"><button id="v-link-align">對位並連動</button><button id="v-link-add" class="quiet">僅建立關係</button></div><div id="v-links"></div></div></details>
-<details class="readout fold-panel workspace-panel" data-expert data-fold="readout"><summary><span>連動狀態</span><span class="fold-description">各輪速度與狀態</span></summary><div class="fold-content"><div class="table-wrap"><table><thead><tr><th>零件</th><th>類型</th><th>齒數</th><th>轉速／線速</th><th>狀態</th></tr></thead><tbody id="v-rates"></tbody></table></div></div></details>
-<details class="outputs fold-panel workspace-panel" data-fold="outputs" open><summary><span>複製與下載</span><span class="fold-description">Rhino・STL・STEP・DXF</span></summary><div class="fold-content"><div class="rhino-transfer"><div><strong>整組帶入 Rhino</strong><span class="sub" id="v-rhino-count">全部 3 個零件</span></div><button id="v-copy-rhino" class="primary" title="實體驗證版 v3 · 使用 Rhino 內建 Python，不需安裝外掛或下載檔案">複製整組 3D 至 Rhino</button></div><div class="actions"><label class="check"><input id="v-copy-board" type="checkbox" checked>包含已啟用底盤</label><label class="check"><input id="v-mount-copy-pins" type="checkbox" checked>包含支撐桿</label></div><div class="output-title"><label>SVG 範圍<select id="v-scope"><option value="selected">選取零件</option><option value="all">整組配置</option></select></label><div class="actions"><button id="v-copy-svg">複製 SVG</button></div></div><div class="download-controls"><label class="field"><span>下載內容</span><select id="v-download-target"><option value="kit">整套列印包（ZIP）</option><option value="selected">選取齒輪</option><option value="all">全部齒輪</option><option value="board">底盤</option><option value="pins">支撐桿</option></select></label><label class="field"><span>檔案格式</span><select id="v-download-format"><option value="stl">STL</option><option value="step">STEP</option><option value="dxf">DXF</option></select></label><button id="v-download" class="primary">下載列印包</button></div><p id="v-download-note" class="sub" role="status" aria-live="polite"></p><div class="sub" id="v-output-note">mm · Rhino 一次複製所有零件；SVG／下載依指定範圍。</div><div id="v-output-status" class="sub" role="status" aria-live="polite"></div><textarea id="v-source" readonly hidden aria-label="可手動複製的 Rhino 命令"></textarea></div></details>
-</div></main></div><footer data-expert>固定輪心、平行軸的理想運動學；編輯配置會回到起點。未計算負載、摩擦、彈性、背隙及完整齒面接觸；齒形採平滑近似。</footer>
-</div>
+              <div class="row">
+                <label class="field"
+                  ><span>孔距 · mm</span
+                  ><input
+                    id="v-mount-pitch"
+                    type="number"
+                    min="6"
+                    max="50"
+                    step="any"
+                    value="10" /></label
+                ><label class="field"
+                  ><span>底盤插拔直徑差 · mm</span
+                  ><input
+                    id="v-mount-clearance"
+                    type="number"
+                    min="0.15"
+                    max="1"
+                    step="0.05"
+                    value="0.3"
+                /></label>
+              </div>
+              <details class="mount-dimensions">
+                <summary>底盤與桿件尺寸</summary>
+                <div class="row">
+                  <label class="field"
+                    ><span>板厚 · mm</span
+                    ><input
+                      id="v-mount-thickness"
+                      type="number"
+                      min="3"
+                      max="20"
+                      step="0.5"
+                      value="6" /></label
+                  ><label class="field"
+                    ><span>板邊餘量 · mm</span
+                    ><input
+                      id="v-mount-margin"
+                      type="number"
+                      min="5"
+                      max="40"
+                      step="1"
+                      value="10"
+                  /></label>
+                </div>
+                <div class="row">
+                  <label class="field"
+                    ><span>插腳直徑 · mm</span
+                    ><input
+                      id="v-mount-plug"
+                      type="number"
+                      min="3"
+                      max="12"
+                      step="0.5"
+                      value="6" /></label
+                  ><label class="field"
+                    ><span>沉槽深度 · mm</span
+                    ><input
+                      id="v-mount-recess"
+                      type="number"
+                      min="0.5"
+                      max="3"
+                      step="0.5"
+                      value="1.5"
+                  /></label>
+                </div>
+                <label class="field"
+                  ><span>齒輪離板高度 · mm</span
+                  ><input
+                    id="v-mount-standOff"
+                    type="number"
+                    min="2"
+                    max="20"
+                    step="0.5"
+                    value="4"
+                /></label>
+              </details>
+              <div
+                id="v-mount-info"
+                class="sub"
+                role="status"
+                aria-live="polite"
+              ></div>
+              <div class="actions mount-actions">
+                <button id="v-mount-grid">對齊孔位</button>
+              </div>
 
-</body>
+              <p class="sub">
+                間隙為直徑差，需依印表機微調。先試印一支桿確認配合。請至「複製與下載」統一下載底盤、桿件，或整套列印包。
+              </p>
+            </div>
+          </details>
+          <details
+            class="fold-panel inspector-panel"
+            data-expert
+            data-fold="position"
+          >
+            <summary>
+              <span>位置與初相</span
+              ><span class="fold-description" id="v-position-summary"></span>
+            </summary>
+            <div class="fold-content">
+              <div class="row">
+                <label class="field"
+                  ><span>X · mm</span
+                  ><input id="v-x" type="number" step="0.1" /></label
+                ><label class="field"
+                  ><span>Y · mm</span><input id="v-y" type="number" step="0.1"
+                /></label>
+              </div>
+              <div class="row">
+                <label class="field"
+                  ><span>Z · mm</span
+                  ><input id="v-z" type="number" step="0.1" /></label
+                ><label class="field" id="v-yaw-wrap"
+                  ><span>齒條方向 · °</span
+                  ><input id="v-yaw" type="number" step="1"
+                /></label>
+              </div>
+              <label class="field"
+                ><span id="v-phase-label">初始齒相 · °</span
+                ><input id="v-phase" type="number" step="0.5" /></label
+              ><label class="check"
+                ><input id="v-fixed" type="checkbox" />固定此零件</label
+              >
+            </div>
+          </details>
+          <details
+            class="fold-panel inspector-panel"
+            data-expert
+            data-fold="advanced"
+          >
+            <summary>
+              <span>進階齒形</span><span class="fold-description">壓力角</span>
+            </summary>
+            <div class="fold-content">
+              <label class="field"
+                ><span id="v-alpha-label">壓力角 · °</span
+                ><input
+                  id="v-alpha"
+                  type="number"
+                  min="14.5"
+                  max="25"
+                  step="0.5"
+              /></label>
+            </div>
+          </details>
+          <div class="inspector-foot">
+            <div id="v-geometry-note" class="sub"></div>
+          </div>
+        </aside>
+        <main>
+          <section class="stage" aria-label="配置與運轉">
+            <div class="toolbar view-toolbar">
+              <div class="segments" aria-label="預覽視圖">
+                <button id="v-view2" aria-pressed="true">2D 配置</button
+                ><button id="v-view3" aria-pressed="false">3D 配置</button
+                ><button id="v-component-toggle" aria-pressed="false">
+                  單獨預覽
+                </button>
+              </div>
+              <div class="view-options">
+                <label class="check"
+                  ><input
+                    id="v-snap"
+                    type="checkbox"
+                    checked
+                  />自動吸附連動</label
+                ><label class="check"
+                  ><input
+                    id="v-pitch"
+                    type="checkbox"
+                    checked
+                  />節圓／節線</label
+                ><button id="v-fit" class="quiet">適合視窗</button>
+              </div>
+            </div>
+            <section id="v-component-preview" hidden aria-label="元件單獨預覽">
+              <div class="component-tools">
+                <label>查看元件<select id="v-component-select"></select></label
+                ><button id="v-component-home">重設視角</button
+                ><button id="v-component-back">返回配置</button>
+              </div>
+              <div class="component-layout">
+                <canvas
+                  id="v-component-canvas"
+                  aria-label="可拖曳旋轉的單一元件 3D 預覽"
+                  tabindex="0"
+                ></canvas>
+                <div class="component-dimensions">
+                  <h3 id="v-component-name"></h3>
+                  <p class="sub">尺寸單位 mm</p>
+                  <dl id="v-component-dimensions"></dl>
+                  <p id="v-component-error" role="status"></p>
+                  <p class="sub">
+                    拖曳旋轉・滾輪縮放<br />方向鍵旋轉・＋／− 縮放
+                  </p>
+                </div>
+              </div>
+            </section>
+            <div class="viewport">
+              <canvas
+                id="v-canvas"
+                tabindex="0"
+                aria-label="齒輪配置與連動模擬，可在 2D 拖曳零件"
+              ></canvas
+              ><span class="viewlabel" id="v-view-note"
+                >2D 拖曳齒輪，靠近後放開即可吸附連動</span
+              >
+            </div>
+            <div class="player">
+              <div class="play-actions">
+                <button class="primary" id="v-play">開始運轉</button
+                ><button id="v-reset" class="quiet">回到起點</button
+                ><button data-expert id="v-step" class="quiet">
+                  前進 0.1 秒</button
+                ><output id="v-time">0.00 s</output>
+              </div>
+              <details
+                class="fold-panel simulation-panel"
+                data-expert
+                data-fold="simulation"
+              >
+                <summary>
+                  <span>模擬設定</span
+                  ><span class="fold-description" id="v-drive-summary"
+                    >主動輪・速度・對齒</span
+                  >
+                </summary>
+                <div class="drive-fields">
+                  <label>主動零件<select id="v-driver"></select></label
+                  ><label
+                    ><span id="v-speed-label">轉速 · rpm</span
+                    ><input
+                      id="v-speed"
+                      type="number"
+                      min="-300"
+                      max="300"
+                      step="1"
+                      value="30" /></label
+                  ><label class="check"
+                    ><input
+                      id="v-autophase"
+                      type="checkbox"
+                      checked
+                    />自動對齒</label
+                  >
+                </div>
+              </details>
+            </div>
+            <div
+              class="message"
+              id="v-status"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </section>
+          <div class="workspace-panels">
+            <details
+              class="connection fold-panel workspace-panel"
+              data-expert
+              data-fold="links"
+            >
+              <summary>
+                <span>連動關係</span
+                ><span class="fold-description" id="v-link-count">2 組</span>
+              </summary>
+              <div class="fold-content">
+                <div class="link-fields">
+                  <label>零件 A<select id="v-link-a"></select></label
+                  ><label>零件 B<select id="v-link-b"></select></label
+                  ><label
+                    >連動方式<select id="v-link-kind">
+                      <option value="mesh">齒面嚙合</option>
+                      <option value="shaft">同軸剛接</option>
+                    </select></label
+                  ><label
+                    >相對方位 · °<input
+                      id="v-bearing"
+                      type="number"
+                      value="0"
+                      step="15"
+                  /></label>
+                </div>
+                <div class="actions">
+                  <button id="v-link-align">對位並連動</button
+                  ><button id="v-link-add" class="quiet">僅建立關係</button>
+                </div>
+                <div id="v-links"></div>
+              </div>
+            </details>
+            <details
+              class="readout fold-panel workspace-panel"
+              data-expert
+              data-fold="readout"
+            >
+              <summary>
+                <span>連動狀態</span
+                ><span class="fold-description">各輪速度與狀態</span>
+              </summary>
+              <div class="fold-content">
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>零件</th>
+                        <th>類型</th>
+                        <th>齒數</th>
+                        <th>轉速／線速</th>
+                        <th>狀態</th>
+                      </tr>
+                    </thead>
+                    <tbody id="v-rates"></tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+            <details
+              class="outputs fold-panel workspace-panel"
+              data-fold="outputs"
+              open
+            >
+              <summary>
+                <span>複製與下載</span
+                ><span class="fold-description">Rhino・STL・STEP・DXF</span>
+              </summary>
+              <div class="fold-content">
+                <div class="rhino-transfer">
+                  <div>
+                    <strong>整組帶入 Rhino</strong
+                    ><span class="sub" id="v-rhino-count">全部 3 個零件</span>
+                  </div>
+                  <button
+                    id="v-copy-rhino"
+                    class="primary"
+                    title="實體驗證版 v3 · 使用 Rhino 內建 Python，不需安裝外掛或下載檔案"
+                  >
+                    複製整組 3D 至 Rhino
+                  </button>
+                </div>
+                <div class="actions">
+                  <label class="check"
+                    ><input
+                      id="v-copy-board"
+                      type="checkbox"
+                      checked
+                    />包含已啟用底盤</label
+                  ><label class="check"
+                    ><input
+                      id="v-mount-copy-pins"
+                      type="checkbox"
+                      checked
+                    />包含支撐桿</label
+                  >
+                </div>
+                <div class="output-title">
+                  <label
+                    >SVG 範圍<select id="v-scope">
+                      <option value="selected">選取零件</option>
+                      <option value="all">整組配置</option>
+                    </select></label
+                  >
+                  <div class="actions">
+                    <button id="v-copy-svg">複製 SVG</button>
+                  </div>
+                </div>
+                <div class="download-controls">
+                  <label class="field"
+                    ><span>下載內容</span
+                    ><select id="v-download-target">
+                      <option value="kit">整套列印包（ZIP）</option>
+                      <option value="selected">選取齒輪</option>
+                      <option value="all">全部齒輪</option>
+                      <option value="board">底盤</option>
+                      <option value="pins">支撐桿</option>
+                      <option value="couplers">馬達聯軸器</option>
+                      <option value="fitTest">馬達軸試配包（ZIP）</option>
+                    </select></label
+                  ><label class="field"
+                    ><span>檔案格式</span
+                    ><select id="v-download-format">
+                      <option value="stl">STL</option>
+                      <option value="step">STEP</option>
+                      <option value="dxf">DXF</option>
+                    </select></label
+                  ><button id="v-download" class="primary">下載列印包</button>
+                </div>
+                <p
+                  id="v-download-note"
+                  class="sub"
+                  role="status"
+                  aria-live="polite"
+                ></p>
+                <div class="sub" id="v-output-note">
+                  mm · Rhino 一次複製所有零件；SVG／下載依指定範圍。
+                </div>
+                <div
+                  id="v-output-status"
+                  class="sub"
+                  role="status"
+                  aria-live="polite"
+                ></div>
+                <textarea
+                  id="v-source"
+                  readonly
+                  hidden
+                  aria-label="可手動複製的 Rhino 命令"
+                ></textarea>
+              </div>
+            </details>
+          </div>
+        </main>
+      </div>
+      <footer data-expert>
+        固定輪心、平行軸的理想運動學；編輯配置會回到起點。未計算負載、摩擦、彈性、背隙及完整齒面接觸；齒形採平滑近似。
+      </footer>
+    </div>
+  </body>
 </html>
